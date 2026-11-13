@@ -30,32 +30,141 @@ const rozwiniety = atom({ plugin: 'token-usage', key: 'rozwiniety' } as const, f
 const otwarte = atom({ plugin: 'token-usage', key: 'otwarte' } as const, {} as Record<string, boolean>)
 // Miesiąc kalendarza względem bieżącego (0 = ten, -1 = poprzedni...).
 const miesiac = atom({ plugin: 'token-usage', key: 'miesiac' } as const, 0)
+const jezyk = atom({ plugin: 'token-usage', key: 'jezyk' } as const, 'pl' as 'pl' | 'en')
 
-const OKRESY = [
-  { value: 'h5', label: 'Ostatnie 5h' },
-  { value: 'd7', label: 'Ostatnie 7 dni' },
-  { value: 'd30', label: 'Ostatnie 30 dni' },
-  { value: 'all', label: 'Ogółem' },
-  { value: 'od', label: 'Od daty...' },
-]
-const ZAKRESY = [
-  { value: 'sesja', label: 'Ta sesja' },
-  { value: 'projekt', label: 'Ten projekt' },
-  { value: 'wszystkie', label: 'Wszystkie projekty' },
-]
-const nazwaZakresu = (z: Ustawienia['zakres']) => ZAKRESY.find(x => x.value === z)?.label ?? z
+type Jez = 'pl' | 'en'
+// Język rysowania: ustawiany w dane() z atomu jezyk, czytany przez L() i fmt.
+let jez: Jez = 'pl'
+
+const S = {
+  pl: {
+    okresy: [
+      { value: 'h5', label: 'Ostatnie 5h' },
+      { value: 'd7', label: 'Ostatnie 7 dni' },
+      { value: 'd30', label: 'Ostatnie 30 dni' },
+      { value: 'all', label: 'Ogółem' },
+      { value: 'od', label: 'Od daty...' },
+    ],
+    zakresy: [
+      { value: 'sesja', label: 'Ta sesja' },
+      { value: 'projekt', label: 'Ten projekt' },
+      { value: 'wszystkie', label: 'Wszystkie projekty' },
+    ],
+    krotko: { h5: '5h', d7: '7 dni', d30: '30 dni', all: 'ogółem', od: 'od' } as Record<Ustawienia['okres'], string>,
+    typy: { 0: 'Wejście', 1: 'Wyjście', 3: 'Cache zapis', 4: 'Cache odczyt' } as Record<number, string>,
+    mysl: 'w tym myślenie',
+    bezEffortu: 'bez effortu',
+    wywolan: (n: number) =>
+      `${n} ${n === 1 ? 'wywołanie' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'wywołania' : 'wywołań'}`,
+    sub: 'subagenci',
+    subW: 'Subagenci',
+    glowny: 'Główny wątek',
+    nieznany: 'nieznany',
+    effort: (we: string, wy: string, zapis: string, odczyt: string) => `we ${we} · wy ${wy} · zapis ${zapis} · odczyt ${odczyt}`,
+    typyTokenow: 'Typy tokenów',
+    srednio: (x: string) => `średnio ${x} na wywołanie`,
+    brakDanych: 'Brak danych.',
+    zCache: (x: string) => `Z cache: ${x} kontekstu`,
+    subModelu: (a: string, b: string, c: string) => `Subagenci: ${a} · ${b} modelu · ${c}`,
+    dane: 'Dane',
+    okres: 'Okres',
+    od: 'Od (RRRR-MM-DD)',
+    zlaData: 'Zły format daty, użyj RRRR-MM-DD',
+    miesiace: ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'],
+    dniTyg: ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'],
+    brakZuzycia: 'brak zużycia',
+    podpowiedz: 'Najedź: zużycie dnia · klik: dzień · drugi klik: zakres dat',
+    widok: '⚙ Widok',
+    wpiszDate: 'Wpisz datę RRRR-MM-DD i zatwierdź Enterem.',
+    skan: 'Skan',
+    trwa: 'trwa...',
+    odswiez: 'Odśwież',
+    stopka: 'Okno 5h liczone godzinowo (±1h). Suma = wejście + wyjście + cache.',
+    blad: 'Błąd skanu',
+    bladSub: 'Błąd skanu subagentów',
+    bladDni: 'Błąd skanu dni sesji',
+    pasekAlt: 'Pasek',
+    tokeny: 'tokeny',
+    sesja: 'sesja',
+    szczegoly: 'Szczegóły tokenów',
+    zwin: 'Zwiń tokeny',
+    tytulPanelu: 'Zużycie tokenów',
+    opisKomendy: 'Pokaż panel zużycia tokenów',
+    panelOtwarty: 'Panel tokenów otwarty.',
+    brakMiejsca: 'Brak miejsca na panel, szczegóły rozwinięte nad promptem.',
+  },
+  en: {
+    okresy: [
+      { value: 'h5', label: 'Last 5h' },
+      { value: 'd7', label: 'Last 7 days' },
+      { value: 'd30', label: 'Last 30 days' },
+      { value: 'all', label: 'Overall' },
+      { value: 'od', label: 'From date...' },
+    ],
+    zakresy: [
+      { value: 'sesja', label: 'This session' },
+      { value: 'projekt', label: 'This project' },
+      { value: 'wszystkie', label: 'All projects' },
+    ],
+    krotko: { h5: '5h', d7: '7 days', d30: '30 days', all: 'overall', od: 'from' } as Record<Ustawienia['okres'], string>,
+    typy: { 0: 'Input', 1: 'Output', 3: 'Cache write', 4: 'Cache read' } as Record<number, string>,
+    mysl: 'incl. thinking',
+    bezEffortu: 'no effort',
+    wywolan: (n: number) => `${n} ${n === 1 ? 'call' : 'calls'}`,
+    sub: 'subagents',
+    subW: 'Subagents',
+    glowny: 'Main thread',
+    nieznany: 'unknown',
+    effort: (we: string, wy: string, zapis: string, odczyt: string) => `in ${we} · out ${wy} · write ${zapis} · read ${odczyt}`,
+    typyTokenow: 'Token types',
+    srednio: (x: string) => `avg ${x} per call`,
+    brakDanych: 'No data.',
+    zCache: (x: string) => `From cache: ${x} of context`,
+    subModelu: (a: string, b: string, c: string) => `Subagents: ${a} · ${b} of model · ${c}`,
+    dane: 'Data',
+    okres: 'Period',
+    od: 'From (YYYY-MM-DD)',
+    zlaData: 'Bad date format, use YYYY-MM-DD',
+    miesiace: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    dniTyg: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+    brakZuzycia: 'no usage',
+    podpowiedz: 'Hover: day usage · click: day · second click: date range',
+    widok: '⚙ View',
+    wpiszDate: 'Enter a date YYYY-MM-DD and press Enter.',
+    skan: 'Scan',
+    trwa: 'running...',
+    odswiez: 'Refresh',
+    stopka: '5h window counted hourly (±1h). Total = input + output + cache.',
+    blad: 'Scan error',
+    bladSub: 'Subagent scan error',
+    bladDni: 'Session days scan error',
+    pasekAlt: 'Bar',
+    tokeny: 'tokens',
+    sesja: 'session',
+    szczegoly: 'Token details',
+    zwin: 'Hide tokens',
+    tytulPanelu: 'Token usage',
+    opisKomendy: 'Show the token usage panel',
+    panelOtwarty: 'Token panel opened.',
+    brakMiejsca: 'No room for the panel, details expanded above the prompt.',
+  },
+}
+const L = () => S[jez]
+const nazwaZakresu = (z: Ustawienia['zakres']) => L().zakresy.find(x => x.value === z)?.label ?? z
 
 const zero = (): Wiersz => [0, 0, 0, 0, 0]
 const dodaj = (a: Wiersz, b: Wiersz): Wiersz => [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3], a[4] + b[4]]
 const suma = (w: Wiersz) => w[0] + w[1] + w[3] + w[4]
 
-// Jednostka dobierana do wielkości: 830, 9,2 k, 1,26 M (zamiast 0,001 M).
-const fmt = (n: number) =>
-  n >= 1e6
-    ? (n / 1e6).toFixed(n >= 1e8 ? 0 : 2).replace('.', ',') + ' M'
+// Jednostka dobierana do wielkości: 830, 9,2 k (en: 9.2 k), 1,26 M (zamiast 0,001 M).
+const fmt = (n: number) => {
+  const przecinek = (x: string) => (jez === 'pl' ? x.replace('.', ',') : x)
+  return n >= 1e6
+    ? przecinek((n / 1e6).toFixed(n >= 1e8 ? 0 : 2)) + ' M'
     : n >= 1e3
-      ? (n / 1e3).toFixed(n >= 1e5 ? 0 : 1).replace('.', ',') + ' k'
+      ? przecinek((n / 1e3).toFixed(n >= 1e5 ? 0 : 1)) + ' k'
       : String(n)
+}
 
 // Kodowanie folderu projektu przez Claude Code: znaki spoza [A-Za-z0-9] -> '-'.
 const kodProjektu = (cwd: string) => cwd.replace(/[^A-Za-z0-9]/g, '-')
@@ -249,7 +358,7 @@ const skanuj = async ($: any) => {
       const stare = Object.keys(a.kur).filter(p => opisPliku(p)[2] && !a.kur[p]?.a)
       const w = await ps(stare.map(p => `${p}\t0`).join('\n'), '-Agenci')
       if (w.exitCode !== 0) {
-        ostatniSkan = `Błąd skanu subagentów: ${String(w.stderr).slice(0, 120)}`
+        ostatniSkan = `${L().bladSub}: ${String(w.stderr).slice(0, 120)}`
         return
       }
       for (const c of linie(w.stdout)) {
@@ -262,7 +371,7 @@ const skanuj = async ($: any) => {
 
     const wynik = await ps(Object.entries(a.kur).map(([p, k]) => `${p}\t${k.o}`).join('\n'))
     if (wynik.exitCode !== 0) {
-      ostatniSkan = `Błąd skanu: ${String(wynik.stderr).slice(0, 120)}`
+      ostatniSkan = `${L().blad}: ${String(wynik.stderr).slice(0, 120)}`
       return
     }
     let rek: string[][] = []
@@ -283,7 +392,7 @@ const skanuj = async ($: any) => {
       if (pliki.length > 0) {
         const w = await ps(pliki.map(p => `${p}\t${a.kur[p]?.o ?? 0}`).join('\n'), '-Do')
         if (w.exitCode !== 0) {
-          ostatniSkan = `Błąd skanu dni sesji: ${String(w.stderr).slice(0, 120)}`
+          ostatniSkan = `${L().bladDni}: ${String(w.stderr).slice(0, 120)}`
           return
         }
         const dni: Record<string, [number, number]> = {}
@@ -316,7 +425,7 @@ const skanuj = async ($: any) => {
     }
     ostatniSkan = new Date(await $.clock.now()).toLocaleTimeString()
   } catch (err) {
-    ostatniSkan = `Błąd skanu: ${String(err).slice(0, 120)}`
+    ostatniSkan = `${L().blad}: ${String(err).slice(0, 120)}`
   } finally {
     isSkan = false
     // Przerysuj zawsze, żeby godzina skanu i błędy były widoczne.
@@ -324,18 +433,31 @@ const skanuj = async ($: any) => {
   }
 }
 
+// Kolejność: ponytail włączony (jego pasek jest po angielsku) -> ustawienie language -> język systemu.
+const wykryjJezyk = async ($: any): Promise<Jez | undefined> => {
+  try {
+    const wt = (await $.settings.read({ key: 'enabledPlugins' })) as Record<string, unknown> | undefined
+    if (wt && Object.entries(wt).some(([k, v]) => k.startsWith('ponytail@') && v === true)) return 'en'
+    const jezykUstawienia = await $.settings.read({ key: 'language' })
+    if (typeof jezykUstawienia === 'string') return /^(pl|pol)/i.test(jezykUstawienia) ? 'pl' : 'en'
+    const r = await $.process.run(['powershell', '-NoProfile', '-Command', '(Get-UICulture).Name'], { timeoutMs: 10000 })
+    return /^pl/i.test(String(r.stdout).trim()) ? 'pl' : 'en'
+  } catch {
+    return undefined
+  }
+}
+
 const PANEL = 'token-usage'
 const SZER = 28
 
-// Kolejność typów w pasku i legendzie: indeks w Wierszu, nazwa, kolor motywu.
+// Kolejność typów w pasku i legendzie: indeks w Wierszu, kolor motywu (nazwa w S.typy).
 const TYPY = [
-  { ix: 0, nazwa: 'Wejście', kolor: 'suggestion' },
-  { ix: 1, nazwa: 'Wyjście', kolor: 'claude' },
-  { ix: 3, nazwa: 'Cache zapis', kolor: 'warning' },
-  { ix: 4, nazwa: 'Cache odczyt', kolor: 'success' },
+  { ix: 0, kolor: 'suggestion' },
+  { ix: 1, kolor: 'claude' },
+  { ix: 3, kolor: 'warning' },
+  { ix: 4, kolor: 'success' },
 ] as const
 
-const KROTKO: Record<Ustawienia['okres'], string> = { h5: '5h', d7: '7 dni', d30: '30 dni', all: 'ogółem', od: 'od' }
 // Mobile nie ma Select/Input: przycisk przełącza okresy po kolei (bez "od daty").
 const CYKL: Ustawienia['okres'][] = ['h5', 'd7', 'd30', 'all']
 
@@ -404,7 +526,7 @@ const pasek = (el: any, czesci: { v: number; kolor: string }[]) => {
     `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${WYS}">` +
     `<defs><clipPath id="p"><rect width="100%" height="100%" rx="${WYS / 2}" ry="${WYS / 2}"/></clipPath></defs>` +
     `<g clip-path="url(#p)">${prostokaty}</g></svg>`
-  return <Svg source={zrodlo} alt={`Pasek: ${widoczne.map(c => proc(c.v, total)).join(' / ')}`} height={WYS} />
+  return <Svg source={zrodlo} alt={`${L().pasekAlt}: ${widoczne.map(c => proc(c.v, total)).join(' / ')}`} height={WYS} />
 }
 
 const pasekTypow = (el: any, w: Wiersz) => pasek(el, TYPY.map(t => ({ v: w[t.ix], kolor: t.kolor })))
@@ -432,21 +554,20 @@ const legenda = (el: any, w: Wiersz) => {
     <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
       {TYPY.map(t => (
         <Text>
-          <Text color={t.kolor}>■</Text> {t.nazwa}{' '}
+          <Text color={t.kolor}>■</Text> {L().typy[t.ix]}{' '}
           <Text dimColor tabular>
             {fmt(w[t.ix])} · {proc(w[t.ix], s)}
           </Text>
         </Text>
       ))}
-      <Text dimColor>w tym myślenie {fmt(w[2])}</Text>
+      <Text dimColor>{L().mysl} {fmt(w[2])}</Text>
     </Box>
   )
 }
 
-const nazwaEffortu = (effort: string) => (effort === '?' ? 'bez effortu' : effort)
+const nazwaEffortu = (effort: string) => (effort === '?' ? L().bezEffortu : effort)
 
-const wywolan = (n: number) =>
-  `${n} ${n === 1 ? 'wywołanie' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'wywołania' : 'wywołań'}`
+const wywolan = (n: number) => L().wywolan(n)
 
 // Co pokazuje pasek sekcji: typy tokenów albo udział subagentów (ustawienie wspólne dla sekcji).
 type Tryb = NonNullable<Ustawienia['pasek']>
@@ -457,9 +578,9 @@ type Sekcja = { prawa: any; pasek?: any; tresc: any }
 const wierszEffortu = (el: any, effort: string, w: Wiersz, isSub: boolean, n: number) =>
   wierszSzczegolu(
     el,
-    nazwaEffortu(effort) + (isSub ? ' · subagenci' : ''),
+    nazwaEffortu(effort) + (isSub ? ` · ${L().sub}` : ''),
     fmt(suma(w)),
-    `we ${fmt(w[0])} · wy ${fmt(w[1])} · zapis ${fmt(w[3])} · odczyt ${fmt(w[4])}` +
+    L().effort(fmt(w[0]), fmt(w[1]), fmt(w[3]), fmt(w[4])) +
       (isSub && n > 0 ? ` · ${wywolan(n)}` : ''),
   )
 
@@ -468,8 +589,8 @@ const przelacznikTrybu = ($: any, el: any, tryb: Tryb) => {
   const ustaw = (t: Tryb) => () => void update($, ustawienia, s => ({ ...s, pasek: t }))
   return (
     <Box flexDirection="row" gap="sm" flexWrap="wrap">
-      <Button key="tryb-typy" label="Typy tokenów" variant={tryb === 'typy' ? 'primary' : 'secondary'} onPress={ustaw('typy')} />
-      <Button key="tryb-sub" label="Subagenci" variant={tryb === 'sub' ? 'primary' : 'secondary'} onPress={ustaw('sub')} />
+      <Button key="tryb-typy" label={L().typyTokenow} variant={tryb === 'typy' ? 'primary' : 'secondary'} onPress={ustaw('typy')} />
+      <Button key="tryb-sub" label={L().subW} variant={tryb === 'sub' ? 'primary' : 'secondary'} onPress={ustaw('sub')} />
     </Box>
   )
 }
@@ -479,19 +600,19 @@ const legendaSub = (el: any, glowny: number, sub: number, n: number, typy: Map<s
   const total = glowny + sub
   const listaTypow = [...typy]
     .sort((a, b) => b[1] - a[1])
-    .map(([typ, ile]) => `${typ === '?' ? 'nieznany' : typ} ${ile}`)
+    .map(([typ, ile]) => `${typ === '?' ? L().nieznany : typ} ${ile}`)
     .join(' · ')
   return (
     <Box flexDirection="column" gap="xs">
       <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
         <Text>
-          <Text color="suggestion">■</Text> Subagenci{' '}
+          <Text color="suggestion">■</Text> {L().subW}{' '}
           <Text dimColor tabular>
             {fmt(sub)} · {proc(sub, total)}
           </Text>
         </Text>
         <Text>
-          <Text color="claude">■</Text> Główny wątek{' '}
+          <Text color="claude">■</Text> {L().glowny}{' '}
           <Text dimColor tabular>
             {fmt(glowny)} · {proc(glowny, total)}
           </Text>
@@ -499,7 +620,7 @@ const legendaSub = (el: any, glowny: number, sub: number, n: number, typy: Map<s
       </Box>
       <Text dimColor tabular>
         {wywolan(n)}
-        {n > 0 ? ` · średnio ${fmt(sub / n)} na wywołanie` : ''}
+        {n > 0 ? ` · ${L().srednio(fmt(sub / n))}` : ''}
         {listaTypow ? ` · ${listaTypow}` : ''}
       </Text>
     </Box>
@@ -547,7 +668,7 @@ const sekcja = (
       {fmt(total)}
     </Text>
   )
-  if (total === 0) return { prawa, tresc: <Text dimColor>Brak danych.</Text> }
+  if (total === 0) return { prawa, tresc: <Text dimColor>{L().brakDanych}</Text> }
 
   const pasekSekcji =
     tryb === 'sub'
@@ -566,7 +687,7 @@ const sekcja = (
         ) : (
           <Box flexDirection="column" gap="xs">
             {legenda(el, lacznie)}
-            <Text dimColor>Z cache: {trafCache(lacznie)} kontekstu</Text>
+            <Text dimColor>{L().zCache(trafCache(lacznie))}</Text>
           </Box>
         )}
         {modele.map(m => {
@@ -605,7 +726,7 @@ const sekcja = (
               <Box flexDirection="column" gap="xs">
                 {(subM > 0 || nM > 0) && (
                   <Text dimColor size="caption" tabular>
-                    Subagenci: {fmt(subM)} · {proc(subM, suma(m.w))} modelu · {wywolan(nM)}
+                    {L().subModelu(fmt(subM), proc(subM, suma(m.w)), wywolan(nM))}
                   </Text>
                 )}
                 {rzedy.map(r => wierszEffortu(el, r.effort, r.w, r.isSub, wywE.get(r.effort) ?? 0))}
@@ -645,6 +766,7 @@ const zwijana = ($: any, el: any, otw: Record<string, boolean>, id: string, tytu
 // Dane wspólne dla paska i panelu; read() subskrybuje rysunek na zmiany.
 const dane = async ($: any) => {
   await read($, wersja)
+  jez = await read($, jezyk)
   const u = await read($, ustawienia)
   const a = await zaladuj($)
   const teraz = await $.clock.now()
@@ -666,12 +788,12 @@ type Dane = Awaited<ReturnType<typeof dane>>
 const krotkaData = (t: string) => `${t.slice(8, 10)}.${t.slice(5, 7)}`
 const etykietaOkresu = (u: Ustawienia) =>
   u.okres !== 'od'
-    ? KROTKO[u.okres]
+    ? L().krotko[u.okres]
     : u.do
       ? u.do === u.od
         ? krotkaData(u.od)
         : `${krotkaData(u.od)} – ${krotkaData(u.do)}`
-      : `od ${u.od || '?'}`
+      : `${L().krotko.od} ${u.od || '?'}`
 
 const kontrolki = ($: any, el: any, u: Ustawienia) => {
   const { Box, Button } = el
@@ -679,16 +801,17 @@ const kontrolki = ($: any, el: any, u: Ustawienia) => {
   const isSesja = u.zakres === 'sesja'
   if (!('Select' in el)) {
     const i = CYKL.indexOf(u.okres)
-    const z = ZAKRESY.findIndex(x => x.value === u.zakres)
+    const zakresy = L().zakresy
+    const z = zakresy.findIndex(x => x.value === u.zakres)
     return (
       <Box flexDirection="row" gap="sm" flexWrap="wrap">
         <Button
           key="zakres"
-          label={`Dane: ${nazwaZakresu(u.zakres)}`}
-          onPress={() => ustaw({ zakres: ZAKRESY[(z + 1) % ZAKRESY.length]?.value as Ustawienia['zakres'] })}
+          label={`${L().dane}: ${nazwaZakresu(u.zakres)}`}
+          onPress={() => ustaw({ zakres: zakresy[(z + 1) % zakresy.length]?.value as Ustawienia['zakres'] })}
         />
         {!isSesja && (
-          <Button key="okres" label={`Okres: ${etykietaOkresu(u)}`} onPress={() => ustaw({ okres: CYKL[(i + 1) % CYKL.length] })} />
+          <Button key="okres" label={`${L().okres}: ${etykietaOkresu(u)}`} onPress={() => ustaw({ okres: CYKL[(i + 1) % CYKL.length] })} />
         )}
       </Box>
     )
@@ -696,19 +819,19 @@ const kontrolki = ($: any, el: any, u: Ustawienia) => {
   return (
     <Box flexDirection="column" gap="sm">
       <Box flexDirection="row" gap="md" flexWrap="wrap">
-        <el.Select key="zakres" label="Dane" options={ZAKRESY} value={u.zakres} onSelect={(v: string) => ustaw({ zakres: v as Ustawienia['zakres'] })} />
+        <el.Select key="zakres" label={L().dane} options={L().zakresy} value={u.zakres} onSelect={(v: string) => ustaw({ zakres: v as Ustawienia['zakres'] })} />
         {!isSesja && (
-          <el.Select key="okres" label="Okres" options={OKRESY} value={u.okres} onSelect={(v: string) => ustaw({ okres: v as Ustawienia['okres'], do: undefined })} />
+          <el.Select key="okres" label={L().okres} options={L().okresy} value={u.okres} onSelect={(v: string) => ustaw({ okres: v as Ustawienia['okres'], do: undefined })} />
         )}
       </Box>
       {!isSesja && u.okres === 'od' && (
         <el.Input
           key="od"
-          label="Od (RRRR-MM-DD)"
+          label={L().od}
           value={u.od}
           placeholder="2026-11-01"
           onSubmit={(v: string) => {
-            if (dataLokalna(v.trim()) === null) $.ui.toast('Zły format daty, użyj RRRR-MM-DD')
+            if (dataLokalna(v.trim()) === null) $.ui.toast(L().zlaData)
             else ustaw({ od: v.trim(), do: undefined })
           }}
         />
@@ -717,8 +840,6 @@ const kontrolki = ($: any, el: any, u: Ustawienia) => {
   )
 }
 
-const MIESIACE = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień']
-const DNI_TYG = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd']
 // Równe kolumny: szerokość 0 + flexGrow 1 (procenty z ułamkiem engine odrzuca).
 const KOMORKA = { width: 0, flexGrow: 1 }
 
@@ -780,12 +901,12 @@ const kalendarz = ($: any, el: any, u: Ustawienia, dni: Map<string, { t: number;
       <Box flexDirection="row" justifyContent="space-between" alignItems="center" gap={1}>
         <Button key="kal-wstecz" plain label="‹" onPress={zmienMies(-1)} />
         <Text weight="semibold">
-          {MIESIACE[pierwszy.getMonth()]} {pierwszy.getFullYear()}
+          {L().miesiace[pierwszy.getMonth()]} {pierwszy.getFullYear()}
         </Text>
         {off < 0 ? <Button key="kal-dalej" plain label="›" onPress={zmienMies(1)} /> : <Text> </Text>}
       </Box>
       <Box flexDirection="row">
-        {DNI_TYG.map(n => (
+        {L().dniTyg.map(n => (
           <Box {...KOMORKA} justifyContent="center">
             <Text dimColor size="caption">
               {n}
@@ -825,15 +946,15 @@ const kalendarz = ($: any, el: any, u: Ustawienia, dni: Map<string, { t: number;
           return (
             <Box display="none" hover={{ scope: `d-${d}`, display: 'flex' }}>
               <Text tabular>
-                <Text weight="semibold">{krotkaData(d)}</Text> · {x ? fmt(x.t) : 'brak zużycia'}
-                {x && x.sub > 0 ? <Text dimColor> · subagenci {proc(x.sub, x.t)}</Text> : null}
+                <Text weight="semibold">{krotkaData(d)}</Text> · {x ? fmt(x.t) : L().brakZuzycia}
+                {x && x.sub > 0 ? <Text dimColor> · {L().sub} {proc(x.sub, x.t)}</Text> : null}
               </Text>
             </Box>
           )
         })}
       </Box>
       <Text dimColor size="caption">
-        Najedź: zużycie dnia · klik: dzień · drugi klik: zakres dat
+        {L().podpowiedz}
       </Text>
     </Box>
   )
@@ -845,7 +966,7 @@ const szczegoly = ($: any, el: any, d: Dane) => {
   // Jedno zestawienie: dane tej sesji albo projektu / wszystkich projektów w okresie (wybór w "Widok").
   const isSesja = u.zakres === 'sesja'
   const isBladDaty = !isSesja && u.okres === 'od' && dataLokalna(u.od) === null
-  const tytul = isSesja ? 'Ta sesja' : `${nazwaZakresu(u.zakres)} · ${etykietaOkresu(u)}`
+  const tytul = isSesja ? nazwaZakresu('sesja') : `${nazwaZakresu(u.zakres)} · ${etykietaOkresu(u)}`
   const tryb: Tryb = u.pasek ?? 'typy'
   const zw: Zw = (id, tyt, sek) => zwijana($, el, otw, id, tyt, sek)
   const s = isSesja
@@ -859,10 +980,10 @@ const szczegoly = ($: any, el: any, d: Dane) => {
       {!isBladDaty && s.pasek}
       <Box flexDirection="row" justifyContent="space-between" alignItems="center" gap={1} flexWrap="wrap">
         {przelacznikTrybu($, el, tryb)}
-        <Button key="widok" label={isWidok ? '⚙ Widok ▴' : '⚙ Widok'} onPress={przelaczWidok} />
+        <Button key="widok" label={isWidok ? `${L().widok} ▴` : L().widok} onPress={przelaczWidok} />
       </Box>
       {isWidok && kontrolki($, el, u)}
-      {isBladDaty && <Text color="error">Wpisz datę RRRR-MM-DD i zatwierdź Enterem.</Text>}
+      {isBladDaty && <Text color="error">{L().wpiszDate}</Text>}
     </Box>
   )
   return (
@@ -880,11 +1001,11 @@ const szczegoly = ($: any, el: any, d: Dane) => {
       </Box>
       {kalendarz($, el, u, dni, teraz, off)}
       <Box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
-        <Text dimColor>Skan: {ostatniSkan || 'trwa...'}</Text>
-        <Button key="odswiez" label="Odśwież" onPress={() => void skanuj($)} />
+        <Text dimColor>{L().skan}: {ostatniSkan || L().trwa}</Text>
+        <Button key="odswiez" label={L().odswiez} onPress={() => void skanuj($)} />
       </Box>
       <Text dimColor size="caption">
-        Okno 5h liczone godzinowo (±1h). Suma = wejście + wyjście + cache.
+        {L().stopka}
       </Text>
     </Box>
   )
@@ -909,13 +1030,16 @@ const wstawDoPonytail = (wezel: any, przycisk: any): any => {
   return null
 }
 
-const otworzPanel = ($: any) => $.ui.open({ id: PANEL, title: 'Zużycie tokenów' })
+const otworzPanel = ($: any) => $.ui.open({ id: PANEL, title: L().tytulPanelu })
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     projektTeraz = kodProjektu(e.cwd)
     sesjaId = await $.session.id()
-    await $.command.register({ name: 'tokeny', description: 'Pokaż panel zużycia tokenów' })
+    const wykryty = await wykryjJezyk($)
+    if (wykryty) await update($, jezyk, () => wykryty)
+    jez = await read($, jezyk)
+    await $.command.register({ name: 'tokeny', description: L().opisKomendy })
     void skanuj($)
     $.clock.every(60000, () => void skanuj($))
 
@@ -926,7 +1050,7 @@ export const register: Register = on => {
     const r = await otworzPanel($)
     if (!r.isPlaced) await update($, rozwiniety, () => true)
 
-    return { text: r.isPlaced ? 'Panel tokenów otwarty.' : 'Brak miejsca na panel, szczegóły rozwinięte nad promptem.' }
+    return { text: r.isPlaced ? L().panelOtwarty : L().brakMiejsca }
   })
 
   on('turn.complete', async ($, e, next) => {
@@ -956,15 +1080,15 @@ export const register: Register = on => {
       if (!r.isPlaced) await update($, rozwiniety, () => true)
     }
     const przycisk = (
-      <Button key="szczegoly" plain label={isRozwiniety ? 'Zwiń tokeny' : 'Szczegóły tokenów'} onPress={() => void nacisnij()} />
+      <Button key="szczegoly" plain label={isRozwiniety ? L().zwin : L().szczegoly} onPress={() => void nacisnij()} />
     )
     const zPonytail = wstawDoPonytail(pod, przycisk)
     const pasekWlasny = (
       <Box flexDirection="row" alignItems="center" gap={2} width={szer}>
         <Text>
-          <Text color="suggestion">●</Text> tokeny
+          <Text color="suggestion">●</Text> {L().tokeny}
         </Text>
-        <Text tabular>sesja {fmt(razem(Object.values(d.wierszeSesji)))}</Text>
+        <Text tabular>{L().sesja} {fmt(razem(Object.values(d.wierszeSesji)))}</Text>
         <Text dimColor tabular>
           {etykietaOkresu(d.u)} {fmt(suma(okres))}
         </Text>

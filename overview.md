@@ -28,3 +28,8 @@
 - Paski (`pasek()`): na powierzchniach graficznych `Svg` w kształcie pigułki (Box nie ma zaokrągleń): `<svg width=4000 height=10>` bez viewBox, prostokąty z szerokością w %, przycięte `clipPath` z `rx`. Bez viewBox procenty liczą się od rysowanego rozmiaru, więc pasek wypełnia slot, a końce zostają półkolami (sprawdzone w przeglądarce jako `<img>`). Kolory to hex (`KOLORY_SVG`), bo Svg nie zna kluczy motywu. W terminalu znaki `█` o szerokości `SZER`. Terminal rozpoznawany po `e.surface` (`elementy()`), nie po braku `Svg` - kit testowy daje terminalowi `Svg`.
 - Wiersze szczegółów (`wierszSzczegolu()`): nazwa po lewej, suma po prawej, rozbicie drobnym drukiem (`size="caption"`) pod spodem; efforty sortowane malejąco.
 - `$.store` jest kluczowany `token-usage@inline`, nie ścieżką folderu: przeniesienie moda do innego folderu dev-mods zachowuje archiwum.
+
+## Język (pl / en)
+- Słownik: jeden obiekt `S` (`pl` i `en`) w `hooks/register.tsx`, czytany przez `L()`. Wszystkie teksty UI, nazwy miesięcy i dni, toasty oraz opis i odpowiedź `/tokeny` są w nim. Klucze `Button`/`Select` bez zmian.
+- Atom `jezyk` (`'pl'` domyślnie). `dane()` kopiuje go do zmiennej `jez` przy każdym rysowaniu; `fmt()` wg niej daje przecinek (pl) albo kropkę (en).
+- Wykrywanie raz w `session.start` (`wykryjJezyk`), błędy połknięte (zostaje domyślny): 1) `enabledPlugins` ma włączony klucz `ponytail@...` -> en (jego pasek jest po angielsku); 2) ustawienie `language` (`pl`/`pol...` -> pl, inne -> en); 3) PowerShell `(Get-UICulture).Name` (`pl...` -> pl, inne -> en).

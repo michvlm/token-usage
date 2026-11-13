@@ -192,3 +192,28 @@ test('z ponytail: tylko przycisk wpięty w jego wiersz między poziomy a Copy', 
     await ui.unmount()
   }
 })
+
+test('język angielski: etykiety po angielsku i kropka dziesiętna', async ($, on) => {
+  const store: Record<string, unknown> = { ...STORE, kub: { [`${new Date(2026, 10, 12, 10).getTime()}|p|claude-opus-5-5|medium|0`]: [100, 200, 0, 300, 400] } }
+  on('session.id', () => ({ value: 's1' }))
+  on('store.get', (_, e) => ({ value: store[e.key] }))
+  on('clock.now', () => ({ value: new Date(2026, 10, 12, 12).getTime() }))
+  // Język podstawiony hookiem na atomie (reszta atomów bez zmian).
+  on('state.get', async (_, e, next) => (e.key === 'jezyk' ? { value: { value: 'en', version: 1 } } : next(e)))
+
+  const ui = await $.ui.mount({ ...PANEL, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /^All projects · 5h$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^November 2026$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^12\.11 · 1\.0 k$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Cache read/ })).toBeDefined()
+  await ui.unmount()
+
+  const pasek = await $.ui.mount({
+    plugin: 'token-usage',
+    component: 'AbovePrompt',
+    surface: 'desktop',
+    props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 12, bodyColumns: 100, scroll: { offset: 0, bodyRows: 12 }, view: {} },
+  })
+  expect((await pasek.find({ key: 'szczegoly' }))?.props.label).toBe('Token details')
+  await pasek.unmount()
+})

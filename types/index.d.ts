@@ -14,6 +14,7 @@ declare module 'claude-code' {
       rozwiniety: boolean
       otwarte: Record<string, boolean>
       miesiac: number // miesiąc kalendarza względem bieżącego
+      jezyk: 'pl' | 'en' // język interfejsu
     }
   }
 }

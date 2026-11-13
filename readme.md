@@ -15,6 +15,7 @@ Mod do Claude Code (aplikacja desktop, zakładka Code, i terminal). Czyta lokaln
 - **Rozbicie per model** - po rozwinięciu poziomy myślenia (effort), osobno główny wątek i subagenci.
 - **Własne archiwum** - Claude Code kasuje transkrypty po 30 dniach, historia w modzie zostaje.
 - **Lekki** - skan przyrostowy co minutę, zero zależności.
+- **Polski i angielski** - interfejs sam wybiera język (ponytail, ustawienie `language`, język systemu); ułamki: "9,2 k" po polsku, "9.2 k" po angielsku.
 
 ## 📦 Instalacja
 
