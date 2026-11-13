@@ -1,0 +1,5 @@
+{
+  "name": "token-usage",
+  "owner": { "name": "michvlm" },
+  "plugins": [{ "name": "token-usage", "source": "./" }]
+}

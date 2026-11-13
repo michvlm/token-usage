@@ -1,0 +1,6 @@
+{
+  "name": "token-usage",
+  "version": "0.1.0",
+  "description": "Zużycie tokenów: pasek nad promptem i panel boczny, sesja i wybrany okres, z podziałem na model, effort i rodzaj tokenów",
+  "types": "./types/index.d.ts"
+}
