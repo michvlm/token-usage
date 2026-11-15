@@ -19,8 +19,6 @@ Mod do Claude Code (aplikacja desktop, zakładka Code, i terminal). Czyta lokaln
 
 ## 📦 Instalacja
 
-Repozytorium jest prywatne: instalujący musi mieć dostęp do niego i zalogowany GitHub na swoim komputerze.
-
 **Terminal (sesja Claude Code):**
 
 ```
